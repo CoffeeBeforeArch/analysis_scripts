@@ -43,7 +43,7 @@ def filter_lines(path):
         if "globalinsncount" in line:
             instructions.append(int(line.split(':')[1]))
             continue
-        if "CTAsCompleted" in line:
+        if "ctas_completed" in line:
             ctas.append(int(line.split(':')[1]))
             continue
 
