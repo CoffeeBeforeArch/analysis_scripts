@@ -25,7 +25,7 @@ def get_paths(directory):
         for f in files:
             if f.endswith(".log.gz"):
                 log_paths.append(os.path.join(root, f))
-            if "libcudart_gpgpu-sim" in f:
+            if ".so.o" in f:
                 output_paths.append(os.path.join(root, f))
 
     return log_paths, output_paths
