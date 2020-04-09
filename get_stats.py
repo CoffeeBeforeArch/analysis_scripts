@@ -17,13 +17,16 @@ STATS = {
 
 # Returns a list of logfile paths
 def get_paths(directory):
-    paths = []
+    log_paths = []
+    output_paths []
     for root, dirs, files in os.walk(directory):
         for f in files:
             if f.endswith(".log.gz"):
-                paths.append(os.path.join(root, f))
+                log_paths.append(os.path.join(root, f))
+            if "libcudart_gpgpu-sim" in f:
+                output_paths.append(os.path.join(root, f))
 
-    return paths
+    return log_paths, output_paths
 
 # Returns a dictionary of the parsed cycles, instructions, and CTAs
 # #TODO get other statistics from logfiles later
@@ -132,7 +135,7 @@ def filter_cta_ipcs(unfiltered_cta_ipcs, kernel_ipcs):
 def main():
     # Get complete paths to all logs
     script, directory, sample_freq = argv
-    paths = get_paths(directory)
+    log_paths, output_paths = get_paths(directory)
 
     # Get data for each file
     stats = []
