@@ -10,6 +10,8 @@ import json
 # Dictionary of statistics
 STATS = {
     "app_path" : None,
+    "out_path" : None,
+    "kernel_info" : None,
     "kernel_ipcs" : None,
     "cta_ipcs" : None,
     "app_ipc" : None,
@@ -18,7 +20,7 @@ STATS = {
 # Returns a list of logfile paths
 def get_paths(directory):
     log_paths = []
-    output_paths []
+    output_paths = []
     for root, dirs, files in os.walk(directory):
         for f in files:
             if f.endswith(".log.gz"):
@@ -56,6 +58,37 @@ def filter_lines(path):
         "instructions" : instructions,
         "ctas" : ctas,
     }
+    return return_dict
+
+# Returns a dictionary of the CTA and grid info
+# #TODO get other infor from the output file as needed
+def filter_output(path):
+    # Dump the lines from the file
+    with open(path, 'r') as f:
+        lines = f.readlines()
+
+    # Get the size of each wave, and total number of CTAs
+    wave_sizes = []
+    total_ctas = []
+    kernel_names = []
+    prev_ctas = 0
+    for line in lines:
+        if "CTA/core = " in line:
+            wave_sizes.append(int(line.split()[4][:-1]) * 80)
+            continue
+        if "gpu_tot_issued_cta" in line:
+            issued_ctas = int(line.split()[-1])
+            total_ctas.append(issued_ctas - prev_ctas)
+            prev_ctas = issued_ctas
+        if "kernel_name = " in line:
+            kernel_names.append(line.split()[-1])
+
+    # Return a dict containing the CTAs and
+    return_dict = {
+            "kernel_names" : kernel_names,
+            "wave_sizes" : wave_sizes,
+            "total_ctas" : total_ctas,
+            }
     return return_dict
 
 # Returns cycles and instructions split into kernels
@@ -110,7 +143,7 @@ def extract_cta_ipc(split_lines, k_id):
             ctas_completed += split_lines["split_ctas"][k_id][i]
             cycle = split_lines["split_cycles"][k_id][i]
             instructions = split_lines["split_instructions"][k_id][i]
-            ipc = instructions / cycle
+            ipc = float(instructions / cycle)
 
             # Append a tuple of cycle, # of CTAs completed, and IPC
             cta_tuples.append((cycle, ctas_completed, ipc))
@@ -125,7 +158,7 @@ def filter_cta_ipcs(unfiltered_cta_ipcs, kernel_ipcs):
         # For each CTA IPC in each kernel
         for cta_ipc in unfiltered_cta_ipcs[i]:
             # Move to the next kernel when the first IPC within 10% is found
-            abs_diff = abs(cta_ipc[2] - kernel_ipcs[i]) / kernel_ipcs[i]
+            abs_diff = abs(cta_ipc[2] - kernel_ipcs[i]) / float(kernel_ipcs[i])
             if abs_diff < 0.1:
                 cta_ipcs.append(cta_ipc)
                 break
@@ -139,12 +172,19 @@ def main():
 
     # Get data for each file
     stats = []
-    for path in paths:
+    for log_path, out_path in zip(log_paths, output_paths):
         # Set the path for this dict
-        STATS["app_path"] = path
+        STATS["app_path"] = log_path
+        STATS["out_path"] = out_path
+
+        # Get dictionary of results from the output file
+        kernel_info = filter_output(out_path)
+
+        # Set the kernel info for this app
+        STATS["kernel_info"] = kernel_info
 
         # Get list of cycles and instructions
-        filtered_lines = filter_lines(path)
+        filtered_lines = filter_lines(log_path)
 
         # Split into kernels
         split_lines = split_into_kernels(filtered_lines, int(sample_freq))
@@ -173,7 +213,7 @@ def main():
         STATS["cta_ipcs"] = cta_ipcs[:]
 
         # Calculate app IPC
-        app_ipc = app_instructions / app_cycles
+        app_ipc = float(app_instructions / app_cycles)
 
         # Update app IPC
         STATS["app_ipc"] = app_ipc
